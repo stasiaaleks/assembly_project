@@ -1,7 +1,8 @@
 #include "FileReader.h"
 
 int main() {
-    ReadFile("test.txt");
+    FileReader fr;
+    fr.ParseFile("test.txt");
 
     return 0;
 }
