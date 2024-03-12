@@ -117,8 +117,9 @@ public:
         int leftArrLength = mid - start + 1; 
         int rightArrLength = end - mid;
 
-        vector<KeyAverage> leftArr(leftArrLength);
-        vector<KeyAverage> rightArr(rightArrLength);
+        KeyAverage *leftArr = new KeyAverage[leftArrLength];
+        KeyAverage* rightArr = new KeyAverage[rightArrLength];
+        //vector<KeyAverage> rightArr(rightArrLength);
 
         for (int i = 0; i < leftArrLength; i++)
             leftArr[i] = arr[start + i]; 
@@ -152,6 +153,9 @@ public:
             j++;
             k++;
         }
+
+        delete[] leftArr;
+        delete[] rightArr;
     }
 
     void PrintSortedKeys()
