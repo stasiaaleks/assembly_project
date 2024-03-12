@@ -42,7 +42,39 @@ start proc
     mov al, '$'          
     mov [di], al  
 
+    ;TODO: copy symbols to structs
+    access_elements:
+    xor cx,cx              ; initialize counter
+    mov si, offset bufferString
+
+    next_element:
+    mov bx, si
+    add bx, cx
+    mov al, [bx]
+
+    mov bx, si
+    add bx, cx
+    add bx, 1
+    mov ah, [bx]
+ 
+    mov struct_key, ax     
+
+    mov ah, 0
+    mov al, [bx+2]   
+    mov struct_value, bx   ; TODO: how to handle 2,3 digit numbers
+
+    push cx
+    mov di, ax
+    repne scasb             ; check if '$' encountered
+    je exit                 ; if yes exit
+
+    pop cx
+    add cx, 6               ; incrementing counter to next 6 elements
+
+    jmp next_element        
+
     ;output file contents
+    output:
     mov ah, 09h
     mov bx, 1
     lea dx, bufferString
@@ -64,11 +96,14 @@ exit:
 
 .data
 filename db "input.txt", 0
-;promptMessage db "Enter file path: $"
+;promptMessage db "Enter file path: $" 
 errorMessage db "Error in reading file$"
 ;filename db 255, 0, 255 dup(0)
 bufferString db 255 dup(?)
 file_handle dw ?
 bytes_read dw ?
+
+struct_key dw ? ; future var for key
+struct_value dw ? ; future var for value
 
 end init
