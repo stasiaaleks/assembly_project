@@ -4,7 +4,7 @@ org 100h
 
 ; rewrite as procedures +
 ; extract key and value +
-; TODO: turn to complementary binary (hex) (ready in other file)
+; turn value to complementary binary (hex) +
 ; TODO: compare two strings (values) (ready in other file)
 
 .data
@@ -18,7 +18,8 @@ org 100h
 
 .data?
     file_handle dw ? 
-    charRead db ?                
+    charRead db ?  
+    num dw ?               
 
 init:
     mov ax, cs
@@ -41,6 +42,11 @@ start proc
     mov file_handle, ax
     mov di, offset buffer
 
+    call readLoop
+
+start endp
+
+readLoop proc
     ;read line by line
 readLoop:
     ; read byte by byte
@@ -69,7 +75,56 @@ readLoop:
     call extract_key
     jmp readLoop
 
-start endp
+readLoop endp
+
+stringToInt proc
+        push ax ;for other procedures
+        push dx
+
+        xor ax,ax
+        mov bx, 1 ; multiplier
+        mov cx, 10 ; base
+        lea si, value
+        mov dx, [si] 
+
+    ;find where string ends to iterate backwards later
+    findEndOfString:          
+        cmp byte ptr [si], 0
+        jne stringNotEnd
+        dec si                  
+        jmp parseLoop           
+    stringNotEnd:
+        inc si                  
+        jmp findEndOfString
+
+    parseLoop:
+    mov al, [si]            
+    cmp al, '0'              ; is current char a digit
+    jb isNegative            ; if it is before 0 it is not a digit
+    sub al, '0'             
+    mul bx
+    add [num], ax            
+
+    mov ax, bx
+    mul cx        ; multiplier*10
+    mov bx, ax     
+
+    dec si                   
+    cmp si, offset value        
+    jae parseLoop            ; if si >= input start, continue parsing
+
+    jmp parseDone
+
+    isNegative:
+        neg [num]   
+
+    parseDone:
+        mov cx, [num]
+        pop dx ;for other procedures
+        pop ax
+        ret
+
+stringToInt endp
 
 extract_key proc
     ;extracting key
@@ -99,13 +154,18 @@ extract_value:
     
     ;check for eof
     cmp ax, 0           
-    je readLoop
+    jne not_end
+    call stringToInt
+    call readLoop 
 
+    not_end:
     ; check for CR LF
     mov al, [charRead]
 
     cmp al, 0Dh         ; encountered end of the string 
     jne not_new_line
+    mov si, offset value
+    call stringToInt
     call lineFound
 
     not_new_line:
@@ -159,6 +219,8 @@ lineFound proc
     mov si, offset value
     call clear_string
     pop ax
+
+    mov [num],0
 
     mov di, offset buffer
     jmp readLoop
