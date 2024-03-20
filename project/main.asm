@@ -2,10 +2,8 @@
 .code
 org 100h
 
-; rewrite as procedures +
-; extract key and value +
-; turn value to complementary binary (hex) +
-; TODO: compare two strings (values) (ready in other file)
+; rewrite as procedures (refactor) +
+; calculate average
 
 .data
     filename db 'input.txt',0                  
@@ -15,6 +13,7 @@ org 100h
     linesArrayOffset dw 0
     key db 16 dup(0)
     value db 255 dup(0) 
+    len dw 0
 
 .data?
     file_handle dw ? 
@@ -29,7 +28,6 @@ init:
     jmp exit
 
 start proc
-
     ;open file
     mov ah, 3Dh
     mov al, 0
@@ -59,6 +57,7 @@ readLoop:
     ;check for eof
     cmp ax, 0           
     jne not_eof
+    call lineFound
     call exit 
 
     not_eof:
@@ -69,10 +68,15 @@ readLoop:
 
     cmp al, 20h  ; encountered space, which means we extracted the key
     jne not_split  
+    mov si, offset key      
+    add si, [len]           
+    mov byte ptr [si], '$' ;adding terminator to key (maybe fix later
+
     call extract_val 
 
     not_split:
     call extract_key
+
     jmp readLoop
 
 readLoop endp
@@ -126,6 +130,59 @@ stringToInt proc
 
 stringToInt endp
 
+findKeyInArray proc
+ search_key:
+    mov cx, [len]
+    ;mov al, [si];for debug
+    ;mov bl, [di];for debug
+    rep cmpsb 
+    je key_found 
+
+    cmp byte ptr [si], 0
+    je not_found
+
+    next_space:
+    ;mov al, [si];for debug
+    ;mov bl, [di];for debug
+    cmp byte ptr [si], 20h ; Check if current character is a space
+    je next_struct  
+    inc si  
+    jmp next_space ; Continue searching for the space
+
+    next_struct:
+    inc si
+    dec di
+    jmp search_key
+
+key_found:
+    ; here we add value to sum and incrementing counter
+    mov di, si ; di - destination index - address of the end of array we got previously  
+    mov ax, [num]
+    add [di], ax
+    inc [di+1]
+
+    jmp end_of_line
+
+    not_found:
+    ; here we add a new struct: key$, sum, counter
+    mov di, si ;di - destination index - address of the end of array we got previously 
+    dec di 
+    mov si, offset key
+
+    mov cx, [len]
+    rep movsb ;copy from si to di len (in cx) times
+
+    mov ax, [num]
+    mov [si], ax
+    movsb
+    mov [si], 1
+    movsb
+    mov [si], 20h
+    movsb
+
+    ret
+findKeyInArray endp
+
 extract_key proc
     ;extracting key
     lea bx, key
@@ -138,11 +195,11 @@ extract_key proc
 
     add_char_to_key:
     mov [bx], al
+    inc [len]
 
     stosb  ; store al at es:di and increment di
     ret
 extract_key endp
-
 extract_val proc
 extract_value:
     ; encountered space, now extracting value
@@ -183,7 +240,6 @@ extract_value:
     stosb               ; store al at es:di and increment di
     jmp extract_value 
 extract_val endp
-
 clear_string proc
     mov di, si               ; copy string address to di too
 
@@ -199,17 +255,56 @@ end_of_string:
     ret
 
 clear_string endp
-
 error proc
     mov dx, offset errorMessage
     mov ah, 09h
     int 21h
 error endp
+compareStr proc
+    ;assuming in di there is a key, in si there is a linesArray
 
+
+    cld ; auto-increment si
+
+    ;mov di, offset string1  
+    ;mov si, offset string2  
+
+    compare:
+    lodsb ; mov si to al, increment si
+    scasb ; compare al and [di], increment di
+    jne end_comparing ; if not equal, end procedure 
+
+    cmp al, '$'       ; check if the string is terminated
+    je equal        
+    jmp compare
+
+    equal:
+    mov cx, 1 ; marker that strings are equal
+
+    end_comparing:
+    pop si ; restore
+    pop di
+    pop ax
+    ret
+
+compareStr endp
 lineFound proc
     ;here we will compare key to excisting array and create an array of three-elements structs, key sum counter
 
+    push ax ;0 for eof
+    mov si, offset linesArray
+    mov di, offset key
+    inc [len] 
+    call findKeyInArray
+   
+    end_of_line:
     ;prepare everything for next line processing
+    pop ax
+    cmp ax, 0           
+    jne not_end_of_file ;rewrite this later
+    call exit  
+
+    not_end_of_file:
     mov si, offset key
     push ax
     call clear_string
@@ -221,8 +316,9 @@ lineFound proc
     pop ax
 
     mov [num],0
-
+    mov [len],0
     mov di, offset buffer
+
     jmp readLoop
 
 lineFound endp
