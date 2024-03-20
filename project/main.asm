@@ -58,7 +58,7 @@ readLoop:
     cmp ax, 0           
     jne not_eof
     call lineFound
-    call exit 
+    call calculateAverage
 
     not_eof:
     mov al, [charRead]
@@ -132,7 +132,7 @@ stringToInt endp
 
 findKeyInArray proc
  search_key:
-    mov cx, [len]
+    mov cx, [len] ;works, but later CHECK the behaviour for adding val to [di] and incrementing [di+1]
     ;mov al, [si];for debug
     ;mov bl, [di];for debug
     rep cmpsb 
@@ -158,7 +158,8 @@ key_found:
     ; here we add value to sum and incrementing counter
     mov di, si ; di - destination index - address of the end of array we got previously  
     mov ax, [num]
-    add [di], ax
+    xor ah,ah
+    add [di], al
     inc [di+1]
 
     jmp end_of_line
@@ -302,7 +303,7 @@ lineFound proc
     pop ax
     cmp ax, 0           
     jne not_end_of_file ;rewrite this later
-    call exit  
+    ret  
 
     not_end_of_file:
     mov si, offset key
@@ -322,6 +323,35 @@ lineFound proc
     jmp readLoop
 
 lineFound endp
+
+calculateAverage proc
+
+mov si, offset linesArray
+
+to_end_of_key:
+mov bl,[si]
+cmp byte ptr [si], '$'
+je calc
+
+cmp byte ptr [si], 0 ;end of file
+je exit
+
+inc si
+jmp to_end_of_key
+
+calc:
+xor ax,ax
+xor bx,bx
+mov al, [si+1]
+mov bl, [si+2]
+;xor dx, dx ;for remainder  
+div bl ;ax has the quotient
+mov byte ptr [si+1],al
+mov byte ptr [si+2],0 ; clear counter
+add si,4
+jmp to_end_of_key
+
+calculateAverage endp
 
 exit proc
     mov ax, 4C00h
