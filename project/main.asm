@@ -2,24 +2,6 @@
 .code
 org 100h
 
-; rewrite as procedures (refactor) +
-; calculate average
-
-.data
-    filename db 'input.txt',0                  
-    buffer db 255 dup(0)       
-    errorMessage db "Error in reading file$"
-    linesArray db 10000 dup(0)
-    linesArrayOffset dw 0
-    key db 16 dup(0)
-    value db 255 dup(0) 
-    len dw 0
-
-.data?
-    file_handle dw ? 
-    charRead db ?  
-    num dw ?               
-
 init:
     mov ax, cs
     mov ds, ax
@@ -28,20 +10,7 @@ init:
     jmp exit
 
 start proc
-    ;open file
-    mov ah, 3Dh
-    mov al, 0
-    lea dx, filename
-    int 21h
-    jnc no_error
-    call error
-
-    no_error:    
-    mov file_handle, ax
-    mov di, offset buffer
-
     call readLoop
-
 start endp
 
 readLoop proc
@@ -49,7 +18,7 @@ readLoop proc
 readLoop:
     ; read byte by byte
     mov ah, 3Fh         
-    mov bx, file_handle  
+    mov bx, 0h  
     lea dx, charRead    
     mov cx, 1          
     int 21h             
@@ -160,7 +129,9 @@ key_found:
     mov ax, [num]
     xor ah,ah
     add [di], al
-    inc [di+1]
+    mov al, [di+1]
+    inc al
+    mov [di+1],al
 
     jmp end_of_line
 
@@ -176,9 +147,11 @@ key_found:
     mov ax, [num]
     mov [si], ax
     movsb
-    mov [si], 1
+    mov ax, 1
+    mov [si], ax
     movsb
-    mov [si], 20h
+    mov ax, 20h
+    mov [si], ax
     movsb
 
     ret
@@ -358,5 +331,20 @@ exit proc
     int 21h
     ret
 exit endp
+
+.data
+    filename db 'input.txt',0                  
+    buffer db 255 dup(0)       
+    errorMessage db "Error in reading file$"
+    linesArray db 10000 dup(0)
+    linesArrayOffset dw 0
+    key db 16 dup(0)
+    value db 255 dup(0) 
+    len dw 0
+
+.data?
+    file_handle dw ? 
+    charRead db ?  
+    num dw ?       
 
 end init
