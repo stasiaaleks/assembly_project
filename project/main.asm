@@ -2,23 +2,26 @@
 .code
 org 100h
 
+; rewrite as procedures (refactor) +
+; calculate average +
+; added stdin file reading (main) +
+; resize array 32 bit sum and 16 bit counter
+; create bubblesort
+; adjust bat file for tests (workspace.json)
+
 init:
     mov ax, cs
     mov ds, ax
     mov es, ax
-    call start
+    call readFile
     jmp exit
 
-start proc
-    call readLoop
-start endp
-
-readLoop proc
+readFile proc
     ;read line by line
 readLoop:
     ; read byte by byte
     mov ah, 3Fh         
-    mov bx, 0h  
+    mov bx, file_handle ;CHANGE TO BX = 1 TO STDIN!
     lea dx, charRead    
     mov cx, 1          
     int 21h             
@@ -48,7 +51,7 @@ readLoop:
 
     jmp readLoop
 
-readLoop endp
+readFile endp
 
 stringToInt proc
         push ax ;for other procedures
@@ -127,10 +130,26 @@ key_found:
     ; here we add value to sum and incrementing counter
     mov di, si ; di - destination index - address of the end of array we got previously  
     mov ax, [num]
-    xor ah,ah
-    add [di], al
+    mov cx, [di+3]
+    add cx,ax
+    mov al, cl
+    or al, 10h
+    test al, 80h
+    jz highest_bit_zero   ; Jump if the highest bit is zero
+    highest_bit_one:
+    mov ch, 0FFh  ; If highest bit is 1, set all bits in CH to 1
+    jmp inc_sum
+    highest_bit_zero:
+    xor ch, ch    ; If highest bit is 0, set all bits in CH to 0
+    inc_sum:
+    mov [di+2],ch
+    mov [di+3],cl
+
+    add di, 4
     mov al, [di+1]
-    inc al
+    mov ah, [di]
+    inc ax
+    mov [di], ah
     mov [di+1],al
 
     jmp end_of_line
@@ -144,12 +163,16 @@ key_found:
     mov cx, [len]
     rep movsb ;copy from si to di len (in cx) times
 
+    add di, 3
     mov ax, [num]
     mov [si], ax
     movsb
+    
+    inc di
     mov ax, 1
     mov [si], ax
     movsb
+    
     mov ax, 20h
     mov [si], ax
     movsb
@@ -187,7 +210,7 @@ extract_value:
     cmp ax, 0           
     jne not_end
     call stringToInt
-    call readLoop 
+    call readFile 
 
     not_end:
     ; check for CR LF
@@ -234,34 +257,7 @@ error proc
     mov ah, 09h
     int 21h
 error endp
-compareStr proc
-    ;assuming in di there is a key, in si there is a linesArray
 
-
-    cld ; auto-increment si
-
-    ;mov di, offset string1  
-    ;mov si, offset string2  
-
-    compare:
-    lodsb ; mov si to al, increment si
-    scasb ; compare al and [di], increment di
-    jne end_comparing ; if not equal, end procedure 
-
-    cmp al, '$'       ; check if the string is terminated
-    je equal        
-    jmp compare
-
-    equal:
-    mov cx, 1 ; marker that strings are equal
-
-    end_comparing:
-    pop si ; restore
-    pop di
-    pop ax
-    ret
-
-compareStr endp
 lineFound proc
     ;here we will compare key to excisting array and create an array of three-elements structs, key sum counter
 
@@ -315,16 +311,27 @@ jmp to_end_of_key
 calc:
 xor ax,ax
 xor bx,bx
-mov al, [si+1]
-mov bl, [si+2]
-;xor dx, dx ;for remainder  
-div bl ;ax has the quotient
-mov byte ptr [si+1],al
-mov byte ptr [si+2],0 ; clear counter
-add si,4
+xor dx,dx
+mov dh, [si+1]
+mov dl, [si+2]
+mov ah, [si+3]
+mov al, [si+4]
+
+mov bh, [si+5]
+mov bl, [si+6]
+
+div bx ;ax has the quotient
+mov byte ptr [si+4],al
+mov byte ptr [si+3],ah
+
+mov byte ptr [si+5],0 ; clear counter
+mov byte ptr [si+6],0 ; clear counter
+add si,8
 jmp to_end_of_key
 
 calculateAverage endp
+
+
 
 exit proc
     mov ax, 4C00h
@@ -333,10 +340,12 @@ exit proc
 exit endp
 
 .data
-    filename db 'input.txt',0                  
+    ;filename db 'input.txt',0                  
     buffer db 255 dup(0)       
     errorMessage db "Error in reading file$"
     linesArray db 10000 dup(0)
+    pointersArray db 1000 dup(0)
+    sortedArray db 10000 dup(0) ;not sure if it is necessary
     linesArrayOffset dw 0
     key db 16 dup(0)
     value db 255 dup(0) 
