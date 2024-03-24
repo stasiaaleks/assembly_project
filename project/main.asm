@@ -5,7 +5,8 @@ org 100h
 ; rewrite as procedures (refactor) +
 ; calculate average +
 ; added stdin file reading (main) +
-; resize array 32 bit sum and 16 bit
+; resize array to sum dword +
+; create offsets+average array
 ; create bubblesort
 ; adjust bat file for tests (workspace.json)
 
@@ -13,10 +14,27 @@ init:
     mov ax, cs
     mov ds, ax
     mov es, ax
-    call readFile
+    call start
     jmp exit
 
-readFile proc
+start proc
+    ;open file
+    ;mov ah, 3Dh
+    ;mov al, 0
+    ;lea dx, filename
+    ;int 21h
+    ;jnc no_error
+    ;call error
+
+    ;no_error:    
+    ;mov file_handle, ax
+    ;mov di, offset buffer
+
+    call readLoop
+
+start endp
+
+readLoop proc
     ;read line by line
 readLoop:
     ; read byte by byte
@@ -31,6 +49,8 @@ readLoop:
     jne not_eof
     call lineFound
     call calculateAverage
+    call parseToPointersArray
+    call exit
 
     not_eof:
     mov al, [charRead]
@@ -51,7 +71,7 @@ readLoop:
 
     jmp readLoop
 
-readFile endp
+readLoop endp
 
 stringToInt proc
         push ax ;for other procedures
@@ -105,6 +125,8 @@ stringToInt endp
 findKeyInArray proc
  search_key:
     mov cx, [len] ;works, but later CHECK the behaviour for adding val to [di] and incrementing [di+1]
+    ;mov al, [si];for debug
+    ;mov bl, [di];for debug
     rep cmpsb 
     je key_found 
 
@@ -112,6 +134,8 @@ findKeyInArray proc
     je not_found
 
     next_space:
+    ;mov al, [si];for debug
+    ;mov bl, [di];for debug
     cmp byte ptr [si], 20h ; Check if current character is a space
     je next_struct  
     inc si  
@@ -206,7 +230,7 @@ extract_value:
     cmp ax, 0           
     jne not_end
     call stringToInt
-    call readFile 
+    call readLoop 
 
     not_end:
     ; check for CR LF
@@ -299,7 +323,7 @@ cmp byte ptr [si], '$'
 je calc
 
 cmp byte ptr [si], 0 ;end of file
-je exit
+je end_of_file
 
 inc si
 jmp to_end_of_key
@@ -325,9 +349,58 @@ mov byte ptr [si+6],0 ; clear counter
 add si,8
 jmp to_end_of_key
 
+end_of_file:
+ret
+
 calculateAverage endp
 
+parseToPointersArray proc ;creating an array of pairs <offset, average> HAS PROBLEMS
 
+;adding first struct
+
+mov di, offset pointersArray
+push cx
+xor cx,cx ;here will be an offset counter
+mov si, offset linesArray
+
+findAverage:
+cmp byte ptr [si],'$'   
+je extract_average
+inc si
+inc cx
+jmp findAverage
+
+extract_average:
+inc di
+add si, 3
+mov ax, [si]
+mov [di], ax
+inc di
+add cx, 3
+
+findEndOfStruct:
+add si, 4
+add cx, 4
+cmp byte ptr[si+1],0 ;means eof
+je end_of_linesArray
+
+cmp byte ptr [si],20h
+je addOffset
+jmp findEndOfStruct
+
+addOffset:
+inc si
+inc cx
+inc di
+mov [di], cx ;TODO: check if it is correct
+
+jmp findAverage
+
+end_of_linesArray:
+pop cx
+ret
+
+parseToPointersArray endp
 
 exit proc
     mov ax, 4C00h
@@ -340,8 +413,8 @@ exit endp
     buffer db 255 dup(0)       
     errorMessage db "Error in reading file$"
     linesArray db 10000 dup(0)
-    pointersArray db 1000 dup(0)
-    sortedArray db 10000 dup(0) ;not sure if it is necessary
+    pointersArray db 1000 dup(0) ;pairs <offset to struct, average>
+    ;sortedArray db 10000 dup(0) ; we dont need this cause we sort pointers-and-average array and then just print to file by pointers to structs
     linesArrayOffset dw 0
     key db 16 dup(0)
     value db 255 dup(0) 
@@ -350,6 +423,7 @@ exit endp
 .data?
     file_handle dw ? 
     charRead db ?  
-    num dw ?       
+    num dw ?  
+         
 
 end init
