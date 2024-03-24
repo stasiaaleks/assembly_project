@@ -351,17 +351,15 @@ jmp to_end_of_key
 
 end_of_file:
 ret
-
 calculateAverage endp
 
-parseToPointersArray proc ;creating an array of pairs <offset, average> HAS PROBLEMS
+parseToPointersArray proc ;creating an array of pairs <offset, average> 
 
-;adding first struct
-
-mov di, offset pointersArray
+mov di, offset pointersArray ;adding first struct
 push cx
 xor cx,cx ;here will be an offset counter
 mov si, offset linesArray
+mov structs_num, 1
 
 findAverage:
 cmp byte ptr [si],'$'   
@@ -371,17 +369,18 @@ inc cx
 jmp findAverage
 
 extract_average:
-inc di
+add di,2
 add si, 3
 mov ax, [si]
 mov [di], ax
 inc di
 add cx, 3
+inc structs_num
 
 findEndOfStruct:
 add si, 4
 add cx, 4
-cmp byte ptr[si+1],0 ;means eof
+cmp byte ptr[si+1],0 ;means eof 
 je end_of_linesArray
 
 cmp byte ptr [si],20h
@@ -392,7 +391,10 @@ addOffset:
 inc si
 inc cx
 inc di
-mov [di], cx ;TODO: check if it is correct
+mov al, cl
+mov ah, ch
+mov [di], ch
+mov [di+1], cl ;to save endianness here
 
 jmp findAverage
 
@@ -401,6 +403,16 @@ pop cx
 ret
 
 parseToPointersArray endp
+
+bubbleSort proc
+
+
+
+bubbleSort endp
+
+swap proc
+
+swap endp
 
 exit proc
     mov ax, 4C00h
@@ -419,6 +431,7 @@ exit endp
     key db 16 dup(0)
     value db 255 dup(0) 
     len dw 0
+    structs_num dw 0
 
 .data?
     file_handle dw ? 
