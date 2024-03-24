@@ -2,15 +2,6 @@
 .code
 org 100h
 
-; rewrite as procedures (refactor) +
-; calculate average +
-; added stdin file reading (main) +
-; resize array to sum dword +
-; create offsets+average array +
-; create bubblesort +
-; adjust bat file for tests (workspace.json)
-
-
 init:
     mov ax, cs
     mov ds, ax
@@ -404,7 +395,7 @@ bubbleSort proc ; struct size - 4 bytes
         xor bx,bx
 
         cmp ax,dx
-        jng no_swap
+        jng no_swap ;TO MAKE IT SORT IN A DESCENDING WAY, CHANGE HERE TO "JUMP IF GREATER" and that`s all
         lea di, [pointersArray+si+4]
         lea si, [pointersArray+si]
         push si
