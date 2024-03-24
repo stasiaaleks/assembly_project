@@ -6,40 +6,24 @@ org 100h
 ; calculate average +
 ; added stdin file reading (main) +
 ; resize array to sum dword +
-; create offsets+average array
-; create bubblesort
+; create offsets+average array +
+; create bubblesort +
 ; adjust bat file for tests (workspace.json)
+
 
 init:
     mov ax, cs
     mov ds, ax
     mov es, ax
-    call start
-    jmp exit
-
-start proc
-    ;open file
-    ;mov ah, 3Dh
-    ;mov al, 0
-    ;lea dx, filename
-    ;int 21h
-    ;jnc no_error
-    ;call error
-
-    ;no_error:    
-    ;mov file_handle, ax
-    ;mov di, offset buffer
-
     call readLoop
-
-start endp
+    jmp exit
 
 readLoop proc
     ;read line by line
-readLoop:
+    readLoop:
     ; read byte by byte
     mov ah, 3Fh         
-    mov bx, file_handle ;CHANGE TO BX = 1 TO STDIN!
+    mov bx, 0 ;CHANGE TO BX = 1 TO STDIN! (now 0 for settings in tasm json)
     lea dx, charRead    
     mov cx, 1          
     int 21h             
@@ -50,6 +34,7 @@ readLoop:
     call lineFound
     call calculateAverage
     call parseToPointersArray
+    call bubbleSort
     call exit
 
     not_eof:
@@ -74,59 +59,57 @@ readLoop:
 readLoop endp
 
 stringToInt proc
-        push ax ;for other procedures
-        push dx
+    push ax ;for other procedures
+    push dx
 
-        xor ax,ax
-        mov bx, 1 ; multiplier
-        mov cx, 10 ; base
-        lea si, value
-        mov dx, [si] 
+    xor ax,ax
+    mov bx, 1 ;multiplier
+    mov cx, 10 ;base
+    lea si, value
+    mov dx, [si] 
 
-    ;find where string ends to iterate backwards later
-    findEndOfString:          
-        cmp byte ptr [si], 0
-        jne stringNotEnd
-        dec si                  
-        jmp parseLoop           
+    findEndOfString:   ;find where string ends to iterate backwards later      
+    cmp byte ptr [si], 0
+    jne stringNotEnd
+    dec si                  
+    jmp parseLoop   
+
     stringNotEnd:
-        inc si                  
-        jmp findEndOfString
+    inc si                  
+    jmp findEndOfString
 
     parseLoop:
     mov al, [si]            
-    cmp al, '0'              ; is current char a digit
-    jb isNegative            ; if it is before 0 it is not a digit
+    cmp al, '0' ; is current char a digit
+    jb isNegative ; if it is before 0 it is not a digit
     sub al, '0'             
     mul bx
     add [num], ax            
 
     mov ax, bx
-    mul cx        ; multiplier*10
+    mul cx ; multiplier*10
     mov bx, ax     
 
     dec si                   
     cmp si, offset value        
-    jae parseLoop            ; if si >= input start, continue parsing
+    jae parseLoop ; if si >= input start, continue parsing
 
     jmp parseDone
 
     isNegative:
-        neg [num]   
+    neg [num]   
 
     parseDone:
-        mov cx, [num]
-        pop dx ;for other procedures
-        pop ax
-        ret
+    mov cx, [num]
+    pop dx ;for other procedures
+    pop ax
+    ret
 
 stringToInt endp
 
 findKeyInArray proc
  search_key:
     mov cx, [len] ;works, but later CHECK the behaviour for adding val to [di] and incrementing [di+1]
-    ;mov al, [si];for debug
-    ;mov bl, [di];for debug
     rep cmpsb 
     je key_found 
 
@@ -134,19 +117,17 @@ findKeyInArray proc
     je not_found
 
     next_space:
-    ;mov al, [si];for debug
-    ;mov bl, [di];for debug
-    cmp byte ptr [si], 20h ; Check if current character is a space
+    cmp byte ptr [si], 20h ; check if current character is a space
     je next_struct  
     inc si  
-    jmp next_space ; Continue searching for the space
+    jmp next_space ; continue searching for the space
 
     next_struct:
     inc si
     dec di
     jmp search_key
 
-key_found:
+    key_found:
     ; here we add value to sum and incrementing counter
     mov di, si ; di - destination index - address of the end of array we got previously  
     mov ax, [num]
@@ -155,12 +136,12 @@ key_found:
     mov al, cl
     or al, 10h
     test al, 80h
-    jz highest_bit_zero   ; Jump if the highest bit is zero
+    jz highest_bit_zero   ; jump if the highest bit is zero
     highest_bit_one:
-    mov ch, 0FFh  ; If highest bit is 1, set all bits in CH to 1
+    mov ch, 0FFh  ; if highest bit is 1, set all bits in CH to 1
     jmp inc_sum
     highest_bit_zero:
-    xor ch, ch    ; If highest bit is 0, set all bits in CH to 0
+    xor ch, ch    ; if highest bit is 0, set all bits in CH to 0
     inc_sum:
     mov [di+2],ch
     mov [di+3],cl
@@ -218,10 +199,10 @@ extract_key proc
     ret
 extract_key endp
 extract_val proc
-extract_value:
+    extract_value:
     ; encountered space, now extracting value
     mov ah, 3Fh         
-    mov bx, file_handle  
+    mov bx, 0  
     lea dx, charRead    
     mov cx, 1          
     int 21h             
@@ -260,7 +241,7 @@ extract_val endp
 clear_string proc
     mov di, si               ; copy string address to di too
 
-clear_loop:
+    clear_loop:
     mov al, [di]             
     test al, al ; check if a char is zero
     jz end_of_string 
@@ -268,7 +249,7 @@ clear_loop:
     inc di  
     jmp clear_loop  
 
-end_of_string:
+    end_of_string:
     ret
 
 clear_string endp
@@ -277,7 +258,6 @@ error proc
     mov ah, 09h
     int 21h
 error endp
-
 lineFound proc
     ;here we will compare key to excisting array and create an array of three-elements structs, key sum counter
 
@@ -315,103 +295,148 @@ lineFound endp
 
 calculateAverage proc
 
-mov si, offset linesArray
+    mov si, offset linesArray
 
-to_end_of_key:
-mov bl,[si]
-cmp byte ptr [si], '$'
-je calc
+    to_end_of_key:
+    mov bl,[si]
+    cmp byte ptr [si], '$'
+    je calc
 
-cmp byte ptr [si], 0 ;end of file
-je end_of_file
+    cmp byte ptr [si], 0 ;end of file
+    je end_of_file
 
-inc si
-jmp to_end_of_key
+    inc si
+    jmp to_end_of_key
 
-calc:
-xor ax,ax
-xor bx,bx
-xor dx,dx
-mov dh, [si+1]
-mov dl, [si+2]
-mov ah, [si+3]
-mov al, [si+4]
+        calc:
+        xor ax,ax
+        xor bx,bx
+        xor dx,dx
+        mov dh, [si+1]
+        mov dl, [si+2]
+        mov ah, [si+3]
+        mov al, [si+4]
 
-mov bh, [si+5]
-mov bl, [si+6]
+        mov bh, [si+5]
+        mov bl, [si+6]
 
-div bx ;ax has the quotient
-mov byte ptr [si+4],al
-mov byte ptr [si+3],ah
+        div bx ;ax has the quotient
+        mov byte ptr [si+4],al
+        mov byte ptr [si+3],ah
 
-mov byte ptr [si+5],0 ; clear counter
-mov byte ptr [si+6],0 ; clear counter
-add si,8
-jmp to_end_of_key
+        mov byte ptr [si+5],0 ; clear counter
+        mov byte ptr [si+6],0 ; clear counter
+        add si,8
+        jmp to_end_of_key
 
-end_of_file:
-ret
+    end_of_file:
+    ret
 calculateAverage endp
-
 parseToPointersArray proc ;creating an array of pairs <offset, average> 
 
-mov di, offset pointersArray ;adding first struct
-push cx
-xor cx,cx ;here will be an offset counter
-mov si, offset linesArray
-mov structs_num, 1
+    mov di, offset pointersArray ;adding first struct
+    xor cx,cx ;here will be an offset counter
+    mov si, offset linesArray
 
-findAverage:
-cmp byte ptr [si],'$'   
-je extract_average
-inc si
-inc cx
-jmp findAverage
+    findAverage:
+    cmp byte ptr [si],'$'   
+    je extract_average
+    inc si
+    inc cx
+    jmp findAverage
 
-extract_average:
-add di,2
-add si, 3
-mov ax, [si]
-mov [di], ax
-inc di
-add cx, 3
-inc structs_num
+    extract_average:
+    add di,2
+    add si, 3
+    mov ax, [si]
+    mov [di], ax
+    inc di
+    add cx, 3
+    inc structs_num
 
-findEndOfStruct:
-add si, 4
-add cx, 4
-cmp byte ptr[si+1],0 ;means eof 
-je end_of_linesArray
+    findEndOfStruct:
+    add si, 4
+    add cx, 4
+    cmp byte ptr[si+1],0 ;means eof 
+    je end_of_linesArray
 
-cmp byte ptr [si],20h
-je addOffset
-jmp findEndOfStruct
+    cmp byte ptr [si],20h
+    je addOffset
+    jmp findEndOfStruct
 
-addOffset:
-inc si
-inc cx
-inc di
-mov al, cl
-mov ah, ch
-mov [di], ch
-mov [di+1], cl ;to save endianness here
+    addOffset:
+    inc si
+    inc cx
+    inc di
+    mov al, cl
+    mov ah, ch
+    mov [di], ch
+    mov [di+1], cl ;to save endianness here
 
-jmp findAverage
+    jmp findAverage
 
-end_of_linesArray:
-pop cx
-ret
+    end_of_linesArray:
+    ret
 
 parseToPointersArray endp
 
-bubbleSort proc
+bubbleSort proc ; struct size - 4 bytes
+    mov bx, structs_num
+    dec bx
 
+    outer_loop:
+    push bx
+    xor si,si
+    mov cx, structs_num
+    dec cx
 
+        inner_loop: 
+
+        lea bx, pointersArray
+        add bx, si
+        add bx, 2
+        mov ax, [bx]
+
+        lea bx, pointersArray
+        add bx, si
+        add bx, 6
+        mov dx, [bx]
+        xor bx,bx
+
+        cmp ax,dx
+        jng no_swap
+        lea di, [pointersArray+si+4]
+        lea si, [pointersArray+si]
+        push si
+
+        call swap
+        pop si
+
+        no_swap:
+        add si, 4 ; struct size
+        loop inner_loop
+        pop bx
+        dec bx
+        jnz outer_loop
+    ret
 
 bubbleSort endp
 
 swap proc
+    push cx
+    mov cx, 2 ; struct fields
 
+        swap_loop:
+        mov ax, [si]
+        mov bx, [di]
+        mov [di], ax
+        mov [si], bx
+        add si, 2
+        add di, 2 ;TODO: fix this sizing
+        loop swap_loop
+
+    pop cx
+    ret 
 swap endp
 
 exit proc
@@ -426,7 +451,6 @@ exit endp
     errorMessage db "Error in reading file$"
     linesArray db 10000 dup(0)
     pointersArray db 1000 dup(0) ;pairs <offset to struct, average>
-    ;sortedArray db 10000 dup(0) ; we dont need this cause we sort pointers-and-average array and then just print to file by pointers to structs
     linesArrayOffset dw 0
     key db 16 dup(0)
     value db 255 dup(0) 
@@ -434,9 +458,8 @@ exit endp
     structs_num dw 0
 
 .data?
-    file_handle dw ? 
+    ;file_handle dw ? 
     charRead db ?  
     num dw ?  
-         
 
 end init
