@@ -2,6 +2,22 @@
 .code
 org 100h
 
+; rewrite as procedures (refactor) +
+; calculate average +
+; added stdin file reading (main) +
+; resize array to sum dword +
+; create offsets+average array +
+; create bubblesort +
+; make it descending +
+; form output file 
+
+; adjust bat file for tests (workspace.json)
+
+;! MADE AN OFFLINE COMMIT 24.03.2024 (resize offset in structure)
+;! MADE AN OFFLINE COMMIT 24.03.2024 (added bubblesort and minor refactor)
+;! MADE AN OFFLINE COMMIT 24.03.2024 19:40:29 (1 comment on how to sort descendingly)
+
+
 init:
     mov ax, cs
     mov ds, ax
@@ -26,6 +42,7 @@ readLoop proc
     call calculateAverage
     call parseToPointersArray
     call bubbleSort
+    call printToFile
     call exit
 
     not_eof:
@@ -100,6 +117,7 @@ stringToInt endp
 
 findKeyInArray proc
  search_key:
+    lea di, key
     mov cx, [len] ;works, but later CHECK the behaviour for adding val to [di] and incrementing [di+1]
     rep cmpsb 
     je key_found 
@@ -114,12 +132,17 @@ findKeyInArray proc
     jmp next_space ; continue searching for the space
 
     next_struct:
+    ;mov al, [si]
+    ;mov bl, [di]
     inc si
     dec di
+    ;mov al, [si]
+    ;mov bl, [di]
     jmp search_key
 
     key_found:
     ; here we add value to sum and incrementing counter
+
     mov di, si ; di - destination index - address of the end of array we got previously  
     mov ax, [num]
     mov cx, [di+3]
@@ -260,8 +283,8 @@ lineFound proc
    
     end_of_line:
     ;prepare everything for next line processing
-    pop ax
-    cmp ax, 0           
+    pop ax ;PROBLEM HERE: somehow when i push ax=0 with standart data, when i pop, i get 026F in ax instead of 0   
+    cmp ax, 0        
     jne not_end_of_file ;rewrite this later
     ret  
 
@@ -382,7 +405,7 @@ bubbleSort proc ; struct size - 4 bytes
     dec cx
 
         inner_loop: 
-
+        
         lea bx, pointersArray
         add bx, si
         add bx, 2
@@ -396,10 +419,10 @@ bubbleSort proc ; struct size - 4 bytes
 
         cmp ax,dx
         jng no_swap ;TO MAKE IT SORT IN A DESCENDING WAY, CHANGE HERE TO "JUMP IF GREATER" and that`s all
+        push si
         lea di, [pointersArray+si+4]
         lea si, [pointersArray+si]
-        push si
-
+        
         call swap
         pop si
 
@@ -430,6 +453,56 @@ swap proc
     ret 
 swap endp
 
+printToFile proc
+mov si, offset pointersArray
+mov cx, structs_num 
+
+    next_char:
+    push cx
+    xor ax,ax
+    mov al, [si+1] ;dl offset
+    mov di, offset linesArray
+    add di, ax ;adding offset
+    
+    check_end_of_string:
+    mov dl, [di]
+    cmp dl, '$'
+    je end_of_str
+    call printChar ;does not print)0
+
+    inc di
+    jmp check_end_of_string
+
+    end_of_str:
+    ;print a space + average + Dh + Ah
+    mov dl, 20h
+    call printChar
+
+    add si, 3 ;HERE INT TO STRING FUNCTION TO BE CALLED
+    mov dl, [si] ;
+    call printChar
+
+    mov dl, 0Dh 
+    call printChar
+
+    mov dl, 0Ah  
+    call printChar
+
+    ;prep for next iteration
+    inc si
+
+    pop cx
+    loop next_char
+    ret
+
+printToFile endp
+
+printChar proc
+    mov ah, 02h 
+    int 21h
+    ret
+printChar endp
+
 exit proc
     mov ax, 4C00h
     int 21h
@@ -437,7 +510,6 @@ exit proc
 exit endp
 
 .data
-    ;filename db 'input.txt',0                  
     buffer db 255 dup(0)       
     errorMessage db "Error in reading file$"
     linesArray db 10000 dup(0)
@@ -449,7 +521,6 @@ exit endp
     structs_num dw 0
 
 .data?
-    ;file_handle dw ? 
     charRead db ?  
     num dw ?  
 
