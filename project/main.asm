@@ -446,7 +446,7 @@ swap proc
         mov [di], ax
         mov [si], bx
         add si, 2
-        add di, 2 ;TODO: fix this sizing
+        add di, 2 
         loop swap_loop
 
     pop cx
@@ -455,6 +455,7 @@ swap endp
 
 printToFile proc
 mov si, offset pointersArray
+mov bl, [di]; for debug
 mov cx, structs_num 
 
     next_char:
@@ -478,9 +479,10 @@ mov cx, structs_num
     mov dl, 20h
     call printChar
 
-    add si, 3 ;HERE INT TO STRING FUNCTION TO BE CALLED
-    mov dl, [si] ;
-    call printChar
+    add si, 3 
+    push si
+    call printNumber
+    pop si
 
     mov dl, 0Dh 
     call printChar
@@ -503,22 +505,68 @@ printChar proc
     ret
 printChar endp
 
+printNumber proc ;num is in si
+    mov bx, 10
+    mov ax, [si]
+    cmp al,0
+    jg not_neg
+
+    mov isNeg, 1
+    cbw 
+    neg ax
+    mov si, offset numStr + 5 + 1 + 1 + 1
+    mov byte ptr [si],'$'
+    jmp convertLoop
+
+    not_neg:
+    mov isNeg, 0
+    mov si, offset numStr + 5 + 1 + 1
+    mov byte ptr [si],'$'
+    
+    convertLoop:
+    dec si
+    xor dx,dx
+    div bx
+    add dl,'0'
+    mov [si],dl
+    test ax,ax
+    jnz convertLoop
+
+    cmp isNeg, 0
+    je is_positive
+    dec si
+    mov byte ptr [si],'-'
+
+    is_positive:
+
+    printDec:
+    mov dx,si
+    mov ah, 09h
+    int 21h
+
+    call clear_string
+
+    ret
+printNumber endp
+
 exit proc
     mov ax, 4C00h
     int 21h
     ret
 exit endp
 
-.data
+.data               
     buffer db 255 dup(0)       
     errorMessage db "Error in reading file$"
     linesArray db 10000 dup(0)
     pointersArray db 1000 dup(0) ;pairs <offset to struct, average>
     linesArrayOffset dw 0
     key db 16 dup(0)
-    value db 255 dup(0) 
+    value db 255 dup(0)
+    numStr db 16 dup(0) 
     len dw 0
     structs_num dw 0
+    isNeg db 1 dup(0)
 
 .data?
     charRead db ?  
