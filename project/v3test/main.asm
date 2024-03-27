@@ -497,7 +497,7 @@ printChar endp
 printNumber proc ;num is in si
     mov bx, 10
     mov ax, [si]
-    cmp ax,0
+    cmp ax, -1
     jg not_neg
 
     mov isNeg, 1
