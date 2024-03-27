@@ -167,7 +167,7 @@ findKeyInArray proc
     mov [di], ah
     mov [di+1],al
 
-    jmp end_of_line
+    ret
 
     not_found:
     ; here we add a new struct: key$, sum, counter
@@ -446,7 +446,7 @@ swap proc
         mov [di], ax
         mov [si], bx
         add si, 2
-        add di, 2 
+        add di, 2 ;TODO: fix this sizing
         loop swap_loop
 
     pop cx
@@ -469,7 +469,7 @@ mov cx, structs_num
     mov dl, [di]
     cmp dl, '$'
     je end_of_str
-    call printChar ;does not print)0
+    call printChar 
 
     inc di
     jmp check_end_of_string
@@ -500,7 +500,7 @@ mov cx, structs_num
 printToFile endp
 
 printChar proc
-    mov ah, 02h 
+    mov ah, 02h
     int 21h
     ret
 printChar endp
@@ -555,7 +555,7 @@ exit proc
     ret
 exit endp
 
-.data               
+.data
     buffer db 255 dup(0)       
     errorMessage db "Error in reading file$"
     linesArray db 10000 dup(0)
