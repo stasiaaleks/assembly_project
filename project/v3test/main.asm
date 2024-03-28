@@ -2,7 +2,6 @@
 .code
 org 100h
 
-
 init:
     mov ax, cs
     mov ds, ax
@@ -15,7 +14,7 @@ readLoop proc
     readLoop:
     ; read byte by byte
     mov ah, 3Fh         
-    mov bx, 0 ;CHANGE TO BX = 1 TO STDIN! (now 0 for settings in tasm json)
+    mov bx, 0 
     lea dx, charRead    
     mov cx, 1          
     int 21h             
@@ -104,7 +103,7 @@ stringToInt endp
 findKeyInArray proc
  search_key:
     lea di, key
-    mov cx, [len] ;works, but later CHECK the behaviour for adding val to [di] and incrementing [di+1]
+    mov cx, [len] 
     rep cmpsb 
     je key_found 
 
@@ -126,46 +125,76 @@ findKeyInArray proc
     ; here we add value to sum and incrementing counter
 
     mov di, si ; di - destination index - address of the end of array we got previously  
-    mov cx, [num]
+    mov dx, [di]
+    add di, 2
     mov ax, [di]
-    add ax,cx 
+    mov cx, [num]
+    add ax, cx  
+
+    jo sum_overflow
+    jmp inc_sum
+
+    sum_overflow:
+    adc dx, 0    
 
     inc_sum:
-    mov [si], al
-    movsb
-    mov [si], ah
-    movsb 
+    sub di, 2
+    mov [di], dl  
+    inc di     
+    mov [di], dh      
+    inc di
+    mov [di], al  
+    inc di     
+    mov [di], ah   
+    inc di
 
     inc_counter:
-    mov ax, [si]
+    mov ax, [di]
     inc ax
-    mov [si], al
-    movsb
-    mov [si], ah
-    movsb
+    mov [di], al
+    inc di
+    mov [di], ah
+    inc di
 
     ret
 
     not_found:
     ; here we add a new struct: key$, sum, counter
-    mov di, si ; di - destination index - address of the end of array we got previously 
+    mov di, si ;di - destination index - address of the end of array we got previously 
     dec di 
     mov si, offset key
 
     mov cx, [len]
     rep movsb ;copy from si to di len (in cx) times
 
-    ;add di, 3
-    mov ax, [num]      ; Load the value into AX
+    add di, 2 ;offseting 2
+    mov ax, [num]      
+    mov [di], al   
+    inc di
+    mov [di], ah     
+    inc di
+
+    cmp [num], 0
+    jl extend_to_ones
+    mov dx, 0
+    jmp init_counter
+
+    extend_to_ones:
+    mov dx, 0FFFFh
+    
+    init_counter:
+    sub di, 4
+    mov [di], dl  
+    inc di     
+    mov [di], dh       ; Move the higher byte (ECh) into the next memory location
+    inc di
+    add di, 2
+
+
+    ;inc di
+    mov ax, 1
     mov [si], al       ; Move the lower byte (78h) into memory at SI
     movsb           ; Move SI to the next byte
-    mov [si], ah     
-    movsb 
-    ;AL IS STORED BEFORE AH 
-
-    mov ax, 1
-    mov [si], al       
-    movsb           
     mov [si], ah      
     movsb 
     
@@ -212,7 +241,7 @@ extract_val proc
     ; check for CR LF
     mov al, [charRead]
 
-    cmp al, 0Dh         ; encountered end of the string 
+    cmp al, 0Dh  ; encountered end of the string 
     jne not_new_line
     mov si, offset value
     call stringToInt
@@ -230,11 +259,11 @@ extract_val proc
     add_char_to_value_str:
     mov [bx], al
 
-    stosb               ; store al at es:di and increment di
+    stosb     ; store al at es:di and increment di
     jmp extract_value 
 extract_val endp
 clear_string proc
-    mov di, si               ; copy string address to di too
+    mov di, si  ; copy string address to di too
 
     clear_loop:
     mov al, [di]             
@@ -264,7 +293,7 @@ lineFound proc
    
     end_of_line:
     ;prepare everything for next line processing
-    pop ax 
+    pop ax   
     cmp ax, 0        
     jne not_end_of_file 
     ret  
@@ -309,26 +338,51 @@ calculateAverage proc
         xor dx,dx
 
         inc si
+        mov dx, [si]
+        inc si
+        inc si
         mov ax, [si]
         inc si
         inc si
         mov bx, [si]
-        cwd 
 
-        divide:
-        idiv bx ;ax has the quotient, dx has the remainder
+        cmp dx, 0
+        je no_overflow
+        cmp dx, 0FFFFh
+        je no_overflow
 
+
+        handle_overflow:
+        div bx ;ax has the quotient, dx has the remainder
+
+        cmp ax, 0
+        jb neg_average
+        jmp add_sum
+
+        neg_average:
+        mov dx, 0FFFFh
+        jmp add_sum
+
+        no_overflow:
+        idiv bx
+
+        add_sum:
         dec si
         dec si
         mov [si], ax
-        
+
+        clear_dx_and_counter:
+        sub si, 2
+        mov [si], dl  
+        inc si     
+        mov [si], dh 
+        inc si
         inc si
         inc si
         mov [si], 0
 
         inc si
         
-        mov ax, [si] ;for debug
         jmp to_end_of_key
 
     end_of_file:
@@ -350,7 +404,7 @@ parseToPointersArray proc ;creating an array of pairs <offset, average>
 
     extract_average:
     inc di
-    inc si
+    add si, 3
 
     mov ax, [si]
     mov [di], ax
@@ -359,7 +413,7 @@ parseToPointersArray proc ;creating an array of pairs <offset, average>
 
     findEndOfStruct:
     add si, 4
-    add cx, 6 
+    add cx, 8 
     cmp byte ptr[si+1],0 ;means eof 
     je end_of_linesArray
 
@@ -369,6 +423,7 @@ parseToPointersArray proc ;creating an array of pairs <offset, average>
 
     addOffset:
     inc si
+    ;inc cx
     inc di
 
     mov ax, cx
@@ -406,7 +461,7 @@ bubbleSort proc ; struct size - 4 bytes
         xor bx,bx
 
         cmp ax,dx
-        jng no_swap 
+        jg no_swap ;TO MAKE IT SORT IN A DESCENDING WAY, CHANGE HERE TO "JUMP IF GREATER" and that`s all
         push si
         lea di, [pointersArray+si+4]
         lea si, [pointersArray+si]
@@ -467,7 +522,6 @@ mov cx, structs_num
     mov dl, 20h
     call printChar
 
-    ;add si, 3 
     push si
     add si, 2
     call printNumber
